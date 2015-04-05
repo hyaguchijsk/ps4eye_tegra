@@ -1,0 +1,7 @@
+<library path="lib/libps4eye_proc">
+
+  <class name="ps4eye_tegra/ps4eye_proc" type="ps4eye_tegra::PS4EyeProc" base_class_type="nodelet::Nodelet">
+    <description>PS4Eye proc for tegra with cuda</description>
+  </class>
+
+</library>
