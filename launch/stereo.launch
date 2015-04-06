@@ -10,10 +10,14 @@
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="screen" />
 
   <!-- arguments for camera param uri -->
+  <!-- <arg name="camera_info_file_right" -->
+  <!--      default="$(find ps4eye)/camera_info/right.yaml" /> -->
+  <!-- <arg name="camera_info_file_left" -->
+  <!--      default="$(find ps4eye)/camera_info/left.yaml" /> -->
   <arg name="camera_info_file_right"
-       default="$(find ps4eye)/camera_info/right.yaml" />
+       default="$(find ps4eye_tegra)/config/right.yaml" />
   <arg name="camera_info_file_left"
-       default="$(find ps4eye)/camera_info/left.yaml" />
+       default="$(find ps4eye_tegra)/config/left.yaml" />
   <arg name="camera_info_url_default" default="file://$(find ps4eye)/camera_info/default.yaml" />
   <arg name="camera_info_url_right" default="file://$(arg camera_info_file_right)" />
   <arg name="camera_info_url_left" default="file://$(arg camera_info_file_left)" />

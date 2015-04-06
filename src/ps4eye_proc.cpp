@@ -18,7 +18,7 @@ void PS4EyeProc::onInit() {
   std::string right_info_file;
   std::string default_package_path = ros::package::getPath("ps4eye");
   private_nh.param(
-      "camera_info_file_left",
+      "left_file_name",
       left_info_file,
       default_package_path + "/camera_info/left.yaml");
   readCameraInfo_(left_info_file, left_info_);
@@ -27,7 +27,7 @@ void PS4EyeProc::onInit() {
   gpu_left_map2_.upload(left_map2_);
 
   private_nh.param(
-      "camera_info_file_right",
+      "right_file_name",
       right_info_file,
       default_package_path + "/camera_info/right.yaml");
   readCameraInfo_(right_info_file, right_info_);
@@ -53,7 +53,7 @@ void PS4EyeProc::onInit() {
 
   // block_matcher_.preset = cv::gpu::StereoBM_GPU::BASIC_PRESET;
   block_matcher_.preset = cv::gpu::StereoBM_GPU::PREFILTER_XSOBEL;
-  block_matcher_.ndisp = 64;
+  block_matcher_.ndisp = 96;
   block_matcher_.winSize = 15;
   block_matcher_.avergeTexThreshold = 10.0;
 
@@ -225,15 +225,20 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
 
 void PS4EyeProc::readCameraInfo_(const std::string& filename,
                                  sensor_msgs::CameraInfo& msg) {
+  ROS_INFO_STREAM("loading " << filename);
+
   YAML::Node info = YAML::LoadFile(filename);
   msg.height = info["image_height"].as<int>();
   msg.width = info["image_width"].as<int>();
+  // ROS_INFO_STREAM("  dim: " << msg.width << " x " << msg.height);
 
   msg.distortion_model = info["distortion_model"].as<std::string>();
+  // ROS_INFO_STREAM("  distortion: " << msg.distortion_model);
 
   msg.D.clear();
   YAML::Node info_d = info["distortion_coefficients"]["data"];
   for (size_t i = 0; i < info_d.size(); i++) {
+    // ROS_INFO_STREAM("    " << info_d[i].as<double>());
     msg.D.push_back(info_d[i].as<double>());
   }
 
