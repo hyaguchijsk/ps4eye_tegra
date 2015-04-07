@@ -10,8 +10,8 @@ void PS4EyeProc::onInit() {
   it_left_camera_.reset(new image_transport::ImageTransport(nh_left_camera));
 
   // gpu information
-  ROS_ASSERT(cv::gpu::getCudaEnabledDeviceCount() > 0);
-  cv::gpu::DeviceInfo info(cv::gpu::getDevice());
+  ROS_ASSERT(GPUNS::getCudaEnabledDeviceCount() > 0);
+  GPUNS::DeviceInfo info(GPUNS::getDevice());
 
   // params
   std::string left_info_file;
@@ -49,13 +49,23 @@ void PS4EyeProc::onInit() {
   r_height_ = 400;
 
   disparity_.create(cv::Size(l_width_, l_height_), CV_8UC1);
+  left_rect_color_.create(cv::Size(l_width_, l_height_), CV_8UC3);
   left_cvimage_.image.create(cv::Size(l_width_, l_height_), CV_8UC3);
 
-  // block_matcher_.preset = cv::gpu::StereoBM_GPU::BASIC_PRESET;
+  ndisp_ = 96;
+  win_size_ = 15;
+
+#if OPENCV3
+  block_matcher_ = cv::cuda::createStereoBM(ndisp_, win_size_);
+  //block_matcher_->setPrefilterType(cv::StereoBM::PREFILTER_XSOBEL);
+  //block_matcher_->setPrefilterCap(31);
+  //block_matcher_->setTextureTheshold(10);
+#else
   block_matcher_.preset = cv::gpu::StereoBM_GPU::PREFILTER_XSOBEL;
-  block_matcher_.ndisp = 96;
-  block_matcher_.winSize = 15;
+  block_matcher_.ndisp = ndisp_;
+  block_matcher_.winSize = win_size_;
   block_matcher_.avergeTexThreshold = 10.0;
+#endif
 
   ros::SubscriberStatusCallback connect_cb =
       boost::bind(&PS4EyeProc::connectCallback, this);
@@ -98,49 +108,61 @@ void PS4EyeProc::connectCallback() {
 
 void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
                                const CameraInfoConstPtr& info_msg) {
+  // static const int DPP = 16; // disparities per pixel
+  // ^ means cv::StereoBM has 4 fractional bits,
+  // so disparity = value / (2 ^ 4) = value / 16
+  // in GPU version, disparity mat has raw disparity
+  static const int DPP = 1; // disparities per pixel
+  static const double inv_dpp = 1.0 / DPP;
+
   ROS_INFO("start proc");
+  GPUNS::Stream gpu_stream;
   const cv::Mat input =
       cv_bridge::toCvShare(image_msg, sensor_msgs::image_encodings::BGR8)->image;
 
   // crop left and right images
+  // rectify
+  ROS_INFO(" crop left");
   cv::Mat left_raw =
       input(cv::Rect(l_x_offset_, l_y_offset_, l_width_, l_height_));
+  GPUNS::GpuMat gpu_left_raw, gpu_left_rect_color, gpu_left_rect;
+  gpu_left_raw.upload(left_raw);
+  ROS_INFO(" rectify left");
+  doRectify_(gpu_left_raw, gpu_left_rect_color, gpu_left_rect,
+             gpu_left_map1_, gpu_left_map2_, gpu_stream);
+
+  ROS_INFO(" crop right");
   cv::Mat right_raw =
       input(cv::Rect(r_x_offset_, r_y_offset_, r_width_, r_height_));
-
-  ROS_INFO("rectify");
-  // rectify
-  cv::Mat left_rect_color, left_rect;
-  cv::gpu::GpuMat gpu_left_raw, gpu_left_rect_color, gpu_left_rect;
-  gpu_left_raw.upload(left_raw);
-  doRectify_(gpu_left_raw, gpu_left_rect_color, gpu_left_rect,
-             gpu_left_map1_, gpu_left_map2_);
-
-  cv::Mat right_rect_color, right_rect;
-  cv::gpu::GpuMat gpu_right_raw, gpu_right_rect_color, gpu_right_rect;
+  GPUNS::GpuMat gpu_right_raw, gpu_right_rect_color, gpu_right_rect;
   gpu_right_raw.upload(right_raw);
+  ROS_INFO(" rectify right");
   doRectify_(gpu_right_raw, gpu_right_rect_color, gpu_right_rect,
-             gpu_right_map1_, gpu_right_map2_);
+             gpu_right_map1_, gpu_right_map2_, gpu_stream);
 
+  gpu_stream.waitForCompletion();
 
   ROS_INFO("stereo matching");
   // cv::gpu::GpuMat gpu_left_rect, gpu_right_rect;
   // gpu_left_rect.upload(left_rect);
   // gpu_right_rect.upload(right_rect);
-  cv::gpu::GpuMat gpu_disp;
-  cv::gpu::Stream gpu_stream;
+  GPUNS::GpuMat gpu_disp, gpu_disp_scaled;
   ROS_INFO(" stereoBM in");
+#if OPENCV3
+  block_matcher_->compute(gpu_left_rect, gpu_right_rect, gpu_disp, gpu_stream);
+  gpu_left_rect_color.download(left_rect_color_, gpu_stream);
+  gpu_disp.download(disparity_, gpu_stream);
+#else
   block_matcher_(gpu_left_rect, gpu_right_rect, gpu_disp, gpu_stream);
+  gpu_stream.enqueueDownload(gpu_left_rect_color, left_cvimage_.image);
+  gpu_stream.enqueueDownload(gpu_disp, disparity_);
+#endif
   ROS_INFO(" stereoBM out");
   //gpu_disp.download(disparity_);
-  gpu_stream.enqueueDownload(gpu_disp, disparity_);
-  gpu_stream.enqueueDownload(gpu_left_rect_color, left_cvimage_.image);
 
   // cpu proc
   // stereo matching
   // from image_pipeline/stereo_image_proc
-  static const int DPP = 8; // disparities per pixel
-  static const double inv_dpp = 1.0 / DPP;
 
   // Allocate new disparity image message
   DisparityImagePtr disp_msg = boost::make_shared<DisparityImage>();
@@ -148,8 +170,8 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   disp_msg->image.header   = info_msg->header;
 
   // Compute window of (potentially) valid disparities
-  int border   = block_matcher_.winSize / 2;
-  int left   = block_matcher_.ndisp + 0 + border - 1;
+  int border   = win_size_ / 2;
+  int left   = ndisp_ + 0 + border - 1;
   int wtf = border + 0;
   int right  = l_width_ - 1 - wtf;
   int top    = border;
@@ -158,7 +180,6 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   disp_msg->valid_window.y_offset = top;
   disp_msg->valid_window.width    = right - left;
   disp_msg->valid_window.height   = bottom - top;
-
 
   sensor_msgs::Image& dimage = disp_msg->image;
   dimage.height = l_height_;
@@ -183,41 +204,48 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
 
   // Disparity search range
   disp_msg->min_disparity = 0;
-  disp_msg->max_disparity = disp_msg->min_disparity + block_matcher_.ndisp - 1;
+  disp_msg->max_disparity = disp_msg->min_disparity + ndisp_ - 1;
   disp_msg->delta_d = inv_dpp;
-
-
 
   // wait for gpu process completion
   gpu_stream.waitForCompletion();
+  ROS_INFO(" GPU process end");
+
+#if OPENCV3
+  left_cvimage_.image = left_rect_color_.createMatHeader();
+  ROS_INFO(" left image conversion end");
+#endif
 
   // We convert from fixed-point to float disparity and also adjust for any x-offset between
   // the principal points: d = d_fp*inv_dpp - (cx_l - cx_r)
+#if OPENCV3
+  // disparity_.createMatHeader().convertTo(
+  //     dmat, dmat.type(), inv_dpp,
+  //     -(stereo_model_.left().cx() -
+  //       stereo_model_.right().cx()));
+  disparity_.createMatHeader().assignTo(dmat, dmat.type());
+#else
   disparity_.convertTo(dmat, dmat.type(), inv_dpp,
                        -(stereo_model_.left().cx() -
                          stereo_model_.right().cx()));
+#endif
   ROS_ASSERT(dmat.data == &dimage.data[0]);
   /// @todo is_bigendian? :)
+  ROS_INFO(" disparity conversion end");
 
-  // Adjust for any x-offset between the principal points: d' = d - (cx_l - cx_r)
-  double cx_l = stereo_model_.left().cx();
-  double cx_r = stereo_model_.right().cx();
-  if (cx_l != cx_r) {
-    cv::Mat_<float> disp_image(disp_msg->image.height, disp_msg->image.width,
-                              reinterpret_cast<float*>(&disp_msg->image.data[0]),
-                              disp_msg->image.step);
-    cv::subtract(disp_image, cv::Scalar(cx_l - cx_r), disp_image);
+  if (pub_disparity_.getNumSubscribers() > 0) {
+    pub_disparity_.publish(disp_msg);
   }
 
-  pub_disparity_.publish(disp_msg);
+  if (pub_left_camera_.getNumSubscribers() > 0) {
+    sensor_msgs::ImagePtr left_image_msg = left_cvimage_.toImageMsg();
+    sensor_msgs::CameraInfoPtr left_info_msg =
+        boost::make_shared<sensor_msgs::CameraInfo>(left_info_);
+    pub_left_camera_.publish(left_image_msg, left_info_msg);
+  }
 
-  sensor_msgs::ImagePtr left_image_msg = left_cvimage_.toImageMsg();
-  sensor_msgs::CameraInfoPtr left_info_msg =
-      boost::make_shared<sensor_msgs::CameraInfo>(left_info_);
   sensor_msgs::CameraInfoPtr right_info_msg =
       boost::make_shared<sensor_msgs::CameraInfo>(right_info_);
-
-  pub_left_camera_.publish(left_image_msg, left_info_msg);
   pub_right_info_.publish(right_info_msg);
 
   ROS_INFO("end porc");
@@ -285,16 +313,18 @@ void PS4EyeProc::initRectification_(const sensor_msgs::CameraInfo& msg,
 }
 
 void PS4EyeProc::doRectify_(
-    cv::gpu::GpuMat& gpu_raw,
-    cv::gpu::GpuMat& gpu_rect_color,
-    cv::gpu::GpuMat& gpu_rect,
-    cv::gpu::GpuMat& gpu_map1,
-    cv::gpu::GpuMat& gpu_map2) {
+    GPUNS::GpuMat& gpu_raw,
+    GPUNS::GpuMat& gpu_rect_color,
+    GPUNS::GpuMat& gpu_rect,
+    GPUNS::GpuMat& gpu_map1,
+    GPUNS::GpuMat& gpu_map2,
+    GPUNS::Stream& stream) {
   // cv::remap(raw, rect_color, map1, map2, cv::INTER_LINEAR);
   // cv::cvtColor(rect_color, rect, CV_BGR2GRAY);
-  cv::gpu::remap(gpu_raw, gpu_rect_color,
-                 gpu_map1, gpu_map2, cv::INTER_LINEAR);
-  cv::gpu::cvtColor(gpu_rect_color, gpu_rect, CV_BGR2GRAY);
+  GPUNS::remap(gpu_raw, gpu_rect_color,
+               gpu_map1, gpu_map2, cv::INTER_LINEAR,
+               cv::BORDER_CONSTANT, cv::Scalar(), stream);
+  GPUNS::cvtColor(gpu_rect_color, gpu_rect, CV_BGR2GRAY, 0, stream);
 }
 
 }  // namespace

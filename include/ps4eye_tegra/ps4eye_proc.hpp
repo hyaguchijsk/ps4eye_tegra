@@ -20,8 +20,19 @@
 
 #include <image_geometry/stereo_camera_model.h>
 #include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/gpu/gpu.hpp>
 #include <cv_bridge/cv_bridge.h>
+
+// CUDA
+#if OPENCV3
+#include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudastereo.hpp>
+#include <opencv2/cudawarping.hpp>
+#define GPUNS cv::cuda
+#else
+#include <opencv2/gpu/gpu.hpp>
+#define GPUNS cv::gpu
+#endif
+//
 
 #include <sensor_msgs/image_encodings.h>
 #include <stereo_msgs/DisparityImage.h>
@@ -81,24 +92,39 @@ class PS4EyeProc : public nodelet::Nodelet {
   image_geometry::PinholeCameraModel left_model_;
   image_geometry::PinholeCameraModel right_model_;
   cv::Mat left_map1_, left_map2_;
-  cv::gpu::GpuMat gpu_left_map1_, gpu_left_map2_;
+  GPUNS::GpuMat gpu_left_map1_, gpu_left_map2_;
   cv::Mat right_map1_, right_map2_;
-  cv::gpu::GpuMat gpu_right_map1_, gpu_right_map2_;
+  GPUNS::GpuMat gpu_right_map1_, gpu_right_map2_;
+
+#if OPENCV3
+  cv::cuda::HostMem left_rect_color_;
+#else
+  cv::Mat left_rect_color_;
+#endif
 
   // stereo matching
   image_geometry::StereoCameraModel stereo_model_;
+#if OPENCV3
+  mutable cv::Ptr<cv::cuda::StereoBM> block_matcher_;
+  mutable cv::cuda::HostMem disparity_;
+#else
   mutable cv::gpu::StereoBM_GPU block_matcher_;
   mutable cv::Mat disparity_;
+#endif
+  int win_size_;
+  int ndisp_;
+
 
   void readCameraInfo_(const std::string& filename,
                        sensor_msgs::CameraInfo& msg);
   void initRectification_(const sensor_msgs::CameraInfo& msg,
                           cv::Mat& map1, cv::Mat& map2);
-  void doRectify_(cv::gpu::GpuMat& gpu_raw,
-                  cv::gpu::GpuMat& gpu_rect_color,
-                  cv::gpu::GpuMat& gpu_rect,
-                  cv::gpu::GpuMat& gpu_map1,
-                  cv::gpu::GpuMat& gpu_map2);
+  void doRectify_(GPUNS::GpuMat& gpu_raw,
+                  GPUNS::GpuMat& gpu_rect_color,
+                  GPUNS::GpuMat& gpu_rect,
+                  GPUNS::GpuMat& gpu_map1,
+                  GPUNS::GpuMat& gpu_map2,
+                  GPUNS::Stream& stream = GPUNS::Stream::Null());
 };
 
 }  // namespace
