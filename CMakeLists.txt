@@ -5,7 +5,7 @@ find_package(catkin REQUIRED cv_bridge dynamic_reconfigure image_geometry image_
 find_package(Boost REQUIRED COMPONENTS thread)
 
 find_package(OpenCV REQUIRED)
-if (OpenCV_VERSION VERSION_EQUAL "3")
+if (OpenCV_VERSION VERSION_GREATER "3.0.0")
   add_definitions("-DOPENCV3=1")
 endif()
 
