@@ -107,6 +107,7 @@ class PS4EyeProc : public nodelet::Nodelet {
 #if OPENCV3
   // mutable cv::Ptr<cv::cuda::StereoBM> block_matcher_;
   mutable cv::Ptr<cv::cuda::StereoConstantSpaceBP> block_matcher_;
+  mutable cv::Ptr<cv::cuda::DisparityBilateralFilter> bilateral_filter_;
   mutable cv::cuda::HostMem disparity_;
 #else
   mutable cv::gpu::StereoBM_GPU block_matcher_;
