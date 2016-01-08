@@ -105,7 +105,8 @@ class PS4EyeProc : public nodelet::Nodelet {
   // stereo matching
   image_geometry::StereoCameraModel stereo_model_;
 #if OPENCV3
-  mutable cv::Ptr<cv::cuda::StereoBM> block_matcher_;
+  // mutable cv::Ptr<cv::cuda::StereoBM> block_matcher_;
+  mutable cv::Ptr<cv::cuda::StereoConstantSpaceBP> block_matcher_;
   mutable cv::cuda::HostMem disparity_;
 #else
   mutable cv::gpu::StereoBM_GPU block_matcher_;
