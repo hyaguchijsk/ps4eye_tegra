@@ -56,7 +56,9 @@ void PS4EyeProc::onInit() {
   win_size_ = 15;
 
 #if OPENCV3
-  block_matcher_ = cv::cuda::createStereoBM(ndisp_, win_size_);
+  // block_matcher_ = cv::cuda::createStereoBM(ndisp_, win_size_);
+  block_matcher_ =
+      cv::cuda::createStereoConstantSpaceBP(ndisp_, 8, 4, 4, CV_16SC1);
   //block_matcher_->setPrefilterType(cv::StereoBM::PREFILTER_XSOBEL);
   //block_matcher_->setPrefilterCap(31);
   //block_matcher_->setTextureTheshold(10);
@@ -220,9 +222,9 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   // the principal points: d = d_fp*inv_dpp - (cx_l - cx_r)
 #if OPENCV3
   // disparity_.createMatHeader().convertTo(
-  //     dmat, dmat.type(), inv_dpp,
-  //     -(stereo_model_.left().cx() -
-  //       stereo_model_.right().cx()));
+  // dmat, dmat.type(), inv_dpp,
+  // -(stereo_model_.left().cx() -
+  //   stereo_model_.right().cx()));
   disparity_.createMatHeader().assignTo(dmat, dmat.type());
 #else
   disparity_.convertTo(dmat, dmat.type(), inv_dpp,
