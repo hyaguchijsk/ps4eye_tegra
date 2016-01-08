@@ -55,15 +55,17 @@ void PS4EyeProc::onInit() {
   ndisp_ = 96;
   win_size_ = 15;
 
+  stretch_factor_ = 2;
+
 #if OPENCV3
   // block_matcher_ = cv::cuda::createStereoBM(ndisp_, win_size_);
   block_matcher_ =
-      cv::cuda::createStereoConstantSpaceBP(ndisp_, 8, 4, 4, CV_16SC1);
+      cv::cuda::createStereoConstantSpaceBP(ndisp_ * stretch_factor_, 8, 4, 4, CV_16SC1);
   //block_matcher_->setPrefilterType(cv::StereoBM::PREFILTER_XSOBEL);
   //block_matcher_->setPrefilterCap(31);
   //block_matcher_->setTextureTheshold(10);
   bilateral_filter_ =
-      cv::cuda::createDisparityBilateralFilter(ndisp_, 5, 1);
+      cv::cuda::createDisparityBilateralFilter(ndisp_ * stretch_factor_, 5, 1);
 #else
   block_matcher_.preset = cv::gpu::StereoBM_GPU::PREFILTER_XSOBEL;
   block_matcher_.ndisp = ndisp_;
@@ -116,7 +118,7 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   // ^ means cv::StereoBM has 4 fractional bits,
   // so disparity = value / (2 ^ 4) = value / 16
   // in GPU version, disparity mat has raw disparity
-  static const int DPP = 1; // disparities per pixel
+  static const int DPP = stretch_factor_; // disparities per pixel
   static const double inv_dpp = 1.0 / DPP;
 
   ROS_INFO("start proc");
@@ -144,20 +146,39 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   doRectify_(gpu_right_raw, gpu_right_rect_color, gpu_right_rect,
              gpu_right_map1_, gpu_right_map2_, gpu_stream);
 
+  // stretch
+  ROS_INFO(" stretch left");
+  GPUNS::GpuMat gpu_left_stretch;
+  cv::cuda::resize(gpu_left_rect, gpu_left_stretch, cv::Size(1280, 400),
+                   0, 0, cv::INTER_LINEAR, gpu_stream);
+
+  ROS_INFO(" stretch right");
+  GPUNS::GpuMat gpu_right_stretch;
+  cv::cuda::resize(gpu_right_rect, gpu_right_stretch, cv::Size(1280, 400),
+                   0, 0, cv::INTER_LINEAR, gpu_stream);
+
+  // wait for left and right image
   gpu_stream.waitForCompletion();
 
   ROS_INFO("stereo matching");
   // cv::gpu::GpuMat gpu_left_rect, gpu_right_rect;
   // gpu_left_rect.upload(left_rect);
   // gpu_right_rect.upload(right_rect);
-  GPUNS::GpuMat gpu_disp, gpu_disp_filtered;
+  GPUNS::GpuMat gpu_disp, gpu_disp_filtered, gpu_disp_stretch;
   ROS_INFO(" stereoBM in");
 #if OPENCV3
-  block_matcher_->compute(gpu_left_rect, gpu_right_rect, gpu_disp, gpu_stream);
-  bilateral_filter_->apply(gpu_disp, gpu_left_rect, gpu_disp_filtered, gpu_stream);
+  // block_matcher_->compute(gpu_left_rect, gpu_right_rect, gpu_disp, gpu_stream);
+  // bilateral_filter_->apply(gpu_disp, gpu_left_rect, gpu_disp_filtered, gpu_stream);
+  block_matcher_->compute(gpu_left_stretch, gpu_right_stretch,
+                          gpu_disp_stretch, gpu_stream);
+  bilateral_filter_->apply(gpu_disp_stretch, gpu_left_stretch,
+                           gpu_disp_filtered, gpu_stream);
+  cv::cuda::resize(gpu_disp_filtered, gpu_disp, cv::Size(640, 400),
+                   0, 0, cv::INTER_LINEAR, gpu_stream);
+
   gpu_left_rect_color.download(left_rect_color_, gpu_stream);
-  // gpu_disp.download(disparity_, gpu_stream);
-  gpu_disp_filtered.download(disparity_, gpu_stream);
+  gpu_disp.download(disparity_, gpu_stream);
+  // gpu_disp_filtered.download(disparity_, gpu_stream);
 #else
   block_matcher_(gpu_left_rect, gpu_right_rect, gpu_disp, gpu_stream);
   gpu_stream.enqueueDownload(gpu_left_rect_color, left_cvimage_.image);
@@ -225,11 +246,11 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   // We convert from fixed-point to float disparity and also adjust for any x-offset between
   // the principal points: d = d_fp*inv_dpp - (cx_l - cx_r)
 #if OPENCV3
-  // disparity_.createMatHeader().convertTo(
-  // dmat, dmat.type(), inv_dpp,
-  // -(stereo_model_.left().cx() -
-  //   stereo_model_.right().cx()));
-  disparity_.createMatHeader().assignTo(dmat, dmat.type());
+  disparity_.createMatHeader().convertTo(
+      dmat, dmat.type(), inv_dpp,
+      -(stereo_model_.left().cx() -
+        stereo_model_.right().cx()));
+  // disparity_.createMatHeader().assignTo(dmat, dmat.type());
 #else
   disparity_.convertTo(dmat, dmat.type(), inv_dpp,
                        -(stereo_model_.left().cx() -
