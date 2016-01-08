@@ -62,6 +62,8 @@ void PS4EyeProc::onInit() {
   //block_matcher_->setPrefilterType(cv::StereoBM::PREFILTER_XSOBEL);
   //block_matcher_->setPrefilterCap(31);
   //block_matcher_->setTextureTheshold(10);
+  bilateral_filter_ =
+      cv::cuda::createDisparityBilateralFilter(ndisp_, 5, 1);
 #else
   block_matcher_.preset = cv::gpu::StereoBM_GPU::PREFILTER_XSOBEL;
   block_matcher_.ndisp = ndisp_;
@@ -148,12 +150,14 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   // cv::gpu::GpuMat gpu_left_rect, gpu_right_rect;
   // gpu_left_rect.upload(left_rect);
   // gpu_right_rect.upload(right_rect);
-  GPUNS::GpuMat gpu_disp, gpu_disp_scaled;
+  GPUNS::GpuMat gpu_disp, gpu_disp_filtered;
   ROS_INFO(" stereoBM in");
 #if OPENCV3
   block_matcher_->compute(gpu_left_rect, gpu_right_rect, gpu_disp, gpu_stream);
+  bilateral_filter_->apply(gpu_disp, gpu_left_rect, gpu_disp_filtered, gpu_stream);
   gpu_left_rect_color.download(left_rect_color_, gpu_stream);
-  gpu_disp.download(disparity_, gpu_stream);
+  // gpu_disp.download(disparity_, gpu_stream);
+  gpu_disp_filtered.download(disparity_, gpu_stream);
 #else
   block_matcher_(gpu_left_rect, gpu_right_rect, gpu_disp, gpu_stream);
   gpu_stream.enqueueDownload(gpu_left_rect_color, left_cvimage_.image);
