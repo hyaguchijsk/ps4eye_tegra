@@ -96,6 +96,9 @@ class PS4EyeProc : public nodelet::Nodelet {
   cv::Mat right_map1_, right_map2_;
   GPUNS::GpuMat gpu_right_map1_, gpu_right_map2_;
 
+  // stretch
+  int32_t stretch_factor_;
+
 #if OPENCV3
   cv::cuda::HostMem left_rect_color_;
 #else
