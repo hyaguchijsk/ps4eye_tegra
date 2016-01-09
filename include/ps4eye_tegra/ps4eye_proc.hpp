@@ -108,8 +108,8 @@ class PS4EyeProc : public nodelet::Nodelet {
   // stereo matching
   image_geometry::StereoCameraModel stereo_model_;
 #if OPENCV3
-  // mutable cv::Ptr<cv::cuda::StereoBM> block_matcher_;
-  mutable cv::Ptr<cv::cuda::StereoConstantSpaceBP> block_matcher_;
+  mutable cv::Ptr<cv::cuda::StereoBM> block_matcher_;
+  mutable cv::Ptr<cv::cuda::StereoConstantSpaceBP> csbp_matcher_;
   mutable cv::Ptr<cv::cuda::DisparityBilateralFilter> bilateral_filter_;
   mutable cv::cuda::HostMem disparity_;
 #else
@@ -118,7 +118,13 @@ class PS4EyeProc : public nodelet::Nodelet {
 #endif
   int win_size_;
   int ndisp_;
+  int filter_radius_;
+  int filter_iter_;
 
+  // switch
+  bool use_csbp_;
+  bool use_bilateral_filter_;
+  bool use_stretch_;
 
   void readCameraInfo_(const std::string& filename,
                        sensor_msgs::CameraInfo& msg);

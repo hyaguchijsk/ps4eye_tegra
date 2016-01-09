@@ -52,6 +52,12 @@
         output="screen">
     <param name="left_file_name"  value="$(arg camera_info_file_left)"  />
     <param name="right_file_name" value="$(arg camera_info_file_right)" />
+    <param name="ndisparity" value="96" />
+    <param name="filter_radius" value="3" />
+    <param name="filter_iter" value="1" />
+    <param name="use_csbp" value="false" />
+    <param name="use_bilateral_filter" value="true" />
+    <param name="use_stretch" value="false" />
   </node>
 
   <group ns="stereo">
