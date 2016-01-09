@@ -73,6 +73,7 @@ class PS4EyeProc : public nodelet::Nodelet {
 
   // camera image
   cv_bridge::CvImage left_cvimage_;
+  GPUNS::GpuMat gpu_input_;
 
   // camera_info
   sensor_msgs::CameraInfo left_info_;
@@ -93,11 +94,15 @@ class PS4EyeProc : public nodelet::Nodelet {
   image_geometry::PinholeCameraModel right_model_;
   cv::Mat left_map1_, left_map2_;
   GPUNS::GpuMat gpu_left_map1_, gpu_left_map2_;
+  GPUNS::GpuMat gpu_left_rect_color_, gpu_left_rect_;
   cv::Mat right_map1_, right_map2_;
   GPUNS::GpuMat gpu_right_map1_, gpu_right_map2_;
+  GPUNS::GpuMat gpu_right_rect_color_, gpu_right_rect_;
 
   // stretch
   int32_t stretch_factor_;
+  GPUNS::GpuMat gpu_left_stretch_;
+  GPUNS::GpuMat gpu_right_stretch_;
 
 #if OPENCV3
   cv::cuda::HostMem left_rect_color_;
@@ -120,6 +125,7 @@ class PS4EyeProc : public nodelet::Nodelet {
   int ndisp_;
   int filter_radius_;
   int filter_iter_;
+  GPUNS::GpuMat gpu_disp_, gpu_disp_filtered_, gpu_disp_stretch_;
 
   // switch
   bool use_csbp_;
