@@ -48,24 +48,37 @@ void PS4EyeProc::onInit() {
   r_width_ = 640;
   r_height_ = 400;
 
-  disparity_.create(cv::Size(l_width_, l_height_), CV_8UC1);
+  disparity_.create(cv::Size(l_width_, l_height_), CV_32FC1);
   left_rect_color_.create(cv::Size(l_width_, l_height_), CV_8UC3);
   left_cvimage_.image.create(cv::Size(l_width_, l_height_), CV_8UC3);
 
-  ndisp_ = 96;
-  win_size_ = 15;
+  private_nh.param("ndisparity", ndisp_, 96);
+  private_nh.param("win_size", win_size_, 15);
+  private_nh.param("filter_radius", filter_radius_, 3);
+  private_nh.param("filter_iter", filter_iter_, 1);
 
-  stretch_factor_ = 2;
+  private_nh.param("stretch_factor", stretch_factor_, 2);
+
+  private_nh.param("use_csbp", use_csbp_, true);
+  private_nh.param("use_bilateral_filter", use_bilateral_filter_, true);
+  private_nh.param("use_stretch", use_stretch_, false);
+
+  if (!use_stretch_) {
+    stretch_factor_ = 1;
+  }
 
 #if OPENCV3
-  // block_matcher_ = cv::cuda::createStereoBM(ndisp_, win_size_);
-  block_matcher_ =
-      cv::cuda::createStereoConstantSpaceBP(ndisp_ * stretch_factor_, 8, 4, 4, CV_16SC1);
+  block_matcher_ = cv::cuda::createStereoBM(ndisp_ * stretch_factor_,
+                                            win_size_);
+  csbp_matcher_ =
+      cv::cuda::createStereoConstantSpaceBP(ndisp_ * stretch_factor_,
+                                            8, 4, 4, CV_16SC1);
   //block_matcher_->setPrefilterType(cv::StereoBM::PREFILTER_XSOBEL);
   //block_matcher_->setPrefilterCap(31);
   //block_matcher_->setTextureTheshold(10);
   bilateral_filter_ =
-      cv::cuda::createDisparityBilateralFilter(ndisp_ * stretch_factor_, 5, 1);
+      cv::cuda::createDisparityBilateralFilter(ndisp_ * stretch_factor_,
+                                               filter_radius_, filter_iter_);
 #else
   block_matcher_.preset = cv::gpu::StereoBM_GPU::PREFILTER_XSOBEL;
   block_matcher_.ndisp = ndisp_;
@@ -128,63 +141,93 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
 
   // crop left and right images
   // rectify
-  ROS_INFO(" crop left");
+  ROS_INFO("  crop left");
   cv::Mat left_raw =
       input(cv::Rect(l_x_offset_, l_y_offset_, l_width_, l_height_));
   GPUNS::GpuMat gpu_left_raw, gpu_left_rect_color, gpu_left_rect;
   gpu_left_raw.upload(left_raw);
-  ROS_INFO(" rectify left");
+  ROS_INFO("  rectify left");
   doRectify_(gpu_left_raw, gpu_left_rect_color, gpu_left_rect,
              gpu_left_map1_, gpu_left_map2_, gpu_stream);
 
-  ROS_INFO(" crop right");
+  ROS_INFO("  crop right");
   cv::Mat right_raw =
       input(cv::Rect(r_x_offset_, r_y_offset_, r_width_, r_height_));
   GPUNS::GpuMat gpu_right_raw, gpu_right_rect_color, gpu_right_rect;
   gpu_right_raw.upload(right_raw);
-  ROS_INFO(" rectify right");
+  ROS_INFO("  rectify right");
   doRectify_(gpu_right_raw, gpu_right_rect_color, gpu_right_rect,
              gpu_right_map1_, gpu_right_map2_, gpu_stream);
 
   // stretch
-  ROS_INFO(" stretch left");
   GPUNS::GpuMat gpu_left_stretch;
-  cv::cuda::resize(gpu_left_rect, gpu_left_stretch, cv::Size(1280, 400),
-                   0, 0, cv::INTER_LINEAR, gpu_stream);
-
-  ROS_INFO(" stretch right");
   GPUNS::GpuMat gpu_right_stretch;
-  cv::cuda::resize(gpu_right_rect, gpu_right_stretch, cv::Size(1280, 400),
-                   0, 0, cv::INTER_LINEAR, gpu_stream);
+  if (use_stretch_) {
+    ROS_INFO("  stretch left");
+    cv::cuda::resize(gpu_left_rect, gpu_left_stretch,
+                     cv::Size(stretch_factor_ * l_width_, l_height_),
+                     0, 0, cv::INTER_LINEAR, gpu_stream);
+
+    ROS_INFO("  stretch right");
+    cv::cuda::resize(gpu_right_rect, gpu_right_stretch,
+                     cv::Size(stretch_factor_ * r_width_, r_height_),
+                     0, 0, cv::INTER_LINEAR, gpu_stream);
+  }
 
   // wait for left and right image
-  gpu_stream.waitForCompletion();
+  // gpu_stream.waitForCompletion();
 
-  ROS_INFO("stereo matching");
+  ROS_INFO(" stereo matching");
   // cv::gpu::GpuMat gpu_left_rect, gpu_right_rect;
   // gpu_left_rect.upload(left_rect);
   // gpu_right_rect.upload(right_rect);
   GPUNS::GpuMat gpu_disp, gpu_disp_filtered, gpu_disp_stretch;
-  ROS_INFO(" stereoBM in");
+  ROS_INFO("  stereoBM in");
 #if OPENCV3
-  // block_matcher_->compute(gpu_left_rect, gpu_right_rect, gpu_disp, gpu_stream);
-  // bilateral_filter_->apply(gpu_disp, gpu_left_rect, gpu_disp_filtered, gpu_stream);
-  block_matcher_->compute(gpu_left_stretch, gpu_right_stretch,
-                          gpu_disp_stretch, gpu_stream);
-  bilateral_filter_->apply(gpu_disp_stretch, gpu_left_stretch,
-                           gpu_disp_filtered, gpu_stream);
-  cv::cuda::resize(gpu_disp_filtered, gpu_disp, cv::Size(640, 400),
-                   0, 0, cv::INTER_LINEAR, gpu_stream);
-
+  if (use_stretch_) {
+    if (use_csbp_) {
+      csbp_matcher_->compute(gpu_left_stretch, gpu_right_stretch,
+                             gpu_disp_stretch, gpu_stream);
+    } else {
+      block_matcher_->compute(gpu_left_stretch, gpu_right_stretch,
+                              gpu_disp_stretch, gpu_stream);
+    }
+    if (use_bilateral_filter_) {
+      bilateral_filter_->apply(gpu_disp_stretch, gpu_left_stretch,
+                               gpu_disp_filtered, gpu_stream);
+      cv::cuda::resize(gpu_disp_filtered, gpu_disp,
+                       cv::Size(l_width_, l_height_),
+                       0, 0, cv::INTER_LINEAR, gpu_stream);
+    } else {
+      cv::cuda::resize(gpu_disp_stretch, gpu_disp,
+                       cv::Size(l_width_, l_height_),
+                       0, 0, cv::INTER_LINEAR, gpu_stream);
+    }
+    gpu_disp.download(disparity_, gpu_stream);
+    // gpu_disp_filtered.download(disparity_, gpu_stream);
+  } else {
+    if (use_csbp_) {
+      csbp_matcher_->compute(gpu_left_rect, gpu_right_rect,
+                             gpu_disp, gpu_stream);
+    } else {
+      block_matcher_->compute(gpu_left_rect, gpu_right_rect,
+                              gpu_disp, gpu_stream);
+    }
+    if (use_bilateral_filter_) {
+      bilateral_filter_->apply(gpu_disp, gpu_left_rect, gpu_disp_filtered,
+                               gpu_stream);
+      gpu_disp_filtered.download(disparity_, gpu_stream);
+    } else {
+      gpu_disp.download(disparity_, gpu_stream);
+    }
+  }
   gpu_left_rect_color.download(left_rect_color_, gpu_stream);
-  gpu_disp.download(disparity_, gpu_stream);
-  // gpu_disp_filtered.download(disparity_, gpu_stream);
 #else
   block_matcher_(gpu_left_rect, gpu_right_rect, gpu_disp, gpu_stream);
   gpu_stream.enqueueDownload(gpu_left_rect_color, left_cvimage_.image);
   gpu_stream.enqueueDownload(gpu_disp, disparity_);
 #endif
-  ROS_INFO(" stereoBM out");
+  ROS_INFO("  stereoBM out");
   //gpu_disp.download(disparity_);
 
   // cpu proc
@@ -235,6 +278,7 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   disp_msg->delta_d = inv_dpp;
 
   // wait for gpu process completion
+  ROS_INFO(" GPU sync");
   gpu_stream.waitForCompletion();
   ROS_INFO(" GPU process end");
 
@@ -246,11 +290,14 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   // We convert from fixed-point to float disparity and also adjust for any x-offset between
   // the principal points: d = d_fp*inv_dpp - (cx_l - cx_r)
 #if OPENCV3
-  disparity_.createMatHeader().convertTo(
-      dmat, dmat.type(), inv_dpp,
-      -(stereo_model_.left().cx() -
-        stereo_model_.right().cx()));
-  // disparity_.createMatHeader().assignTo(dmat, dmat.type());
+  if (use_stretch_) {
+    disparity_.createMatHeader().convertTo(
+        dmat, dmat.type(), inv_dpp,
+        -(stereo_model_.left().cx() -
+          stereo_model_.right().cx()));
+  } else {
+    disparity_.createMatHeader().assignTo(dmat, dmat.type());
+  }
 #else
   disparity_.convertTo(dmat, dmat.type(), inv_dpp,
                        -(stereo_model_.left().cx() -
@@ -275,7 +322,7 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
       boost::make_shared<sensor_msgs::CameraInfo>(right_info_);
   pub_right_info_.publish(right_info_msg);
 
-  ROS_INFO("end porc");
+  ROS_INFO("end proc");
 }
 
 void PS4EyeProc::readCameraInfo_(const std::string& filename,
