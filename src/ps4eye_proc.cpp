@@ -101,6 +101,7 @@ void PS4EyeProc::onInit() {
       nh.advertise<CameraInfo>("/stereo/right/camera_info", 1,
                                connect_cb, connect_cb);
 
+  // image subscriber
   approximate_sync_.reset(
       new ApproximateSync(
           ApproximatePolicy(10),
@@ -127,28 +128,28 @@ void PS4EyeProc::connectCallback() {
 
 void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
                                const CameraInfoConstPtr& info_msg) {
-  // static const int DPP = 16; // disparities per pixel
-  // ^ means cv::StereoBM has 4 fractional bits,
-  // so disparity = value / (2 ^ 4) = value / 16
-  // in GPU version, disparity mat has raw disparity
-  static const int DPP = stretch_factor_; // disparities per pixel
-  static const double inv_dpp = 1.0 / DPP;
-
-  ROS_INFO("start proc");
-  GPUNS::Stream gpu_stream;
+  ROS_INFO("start callback");
   gpu_input_.upload(
       cv_bridge::toCvShare(
           image_msg, sensor_msgs::image_encodings::BGR8)->image);
+  doStereo_(gpu_input_, info_msg->header);
+  ROS_INFO("end callback");
+}
+
+void PS4EyeProc::doStereo_(GPUNS::GpuMat& gpu_input,
+                           const std_msgs::Header& header) {
+  ROS_INFO("start proc");
+  GPUNS::Stream gpu_stream;
 
   // crop left and right images
   ROS_INFO("  crop left");
   GPUNS::GpuMat gpu_left_raw(
-      gpu_input_,
+      gpu_input,
       cv::Rect(l_x_offset_, l_y_offset_, l_width_, l_height_));
 
   ROS_INFO("  crop right");
   GPUNS::GpuMat gpu_right_raw(
-      gpu_input_,
+      gpu_input,
       cv::Rect(r_x_offset_, r_y_offset_, r_width_, r_height_));
 
   // rectify
@@ -223,16 +224,23 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   gpu_stream.enqueueDownload(gpu_disp, disparity_);
 #endif
   ROS_INFO("  stereoBM out");
-  //gpu_disp.download(disparity_);
+
 
   // cpu proc
   // stereo matching
   // from image_pipeline/stereo_image_proc
 
+  // static const int DPP = 16; // disparities per pixel
+  // ^ means cv::StereoBM has 4 fractional bits,
+  // so disparity = value / (2 ^ 4) = value / 16
+  // in GPU version, disparity mat has raw disparity
+  int DPP = stretch_factor_; // disparities per pixel
+  double inv_dpp = 1.0 / DPP;
+
   // Allocate new disparity image message
   DisparityImagePtr disp_msg = boost::make_shared<DisparityImage>();
-  disp_msg->header         = info_msg->header;
-  disp_msg->image.header   = info_msg->header;
+  disp_msg->header         = header;
+  disp_msg->image.header   = header;
 
   // Compute window of (potentially) valid disparities
   int border   = win_size_ / 2;
@@ -255,11 +263,11 @@ void PS4EyeProc::imageCallback(const ImageConstPtr& image_msg,
   cv::Mat_<float> dmat(dimage.height, dimage.width,
                        (float*)&dimage.data[0], dimage.step);
 
-  left_cvimage_.header = info_msg->header;
+  left_cvimage_.header = header;
   left_cvimage_.encoding = sensor_msgs::image_encodings::BGR8;
 
-  left_info_.header = info_msg->header;
-  right_info_.header = info_msg->header;
+  left_info_.header = header;
+  right_info_.header = header;
 
   // Stereo parameters
   disp_msg->f = stereo_model_.right().fx();

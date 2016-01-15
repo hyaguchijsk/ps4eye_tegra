@@ -141,6 +141,9 @@ class PS4EyeProc : public nodelet::Nodelet {
                   GPUNS::GpuMat& gpu_map1,
                   GPUNS::GpuMat& gpu_map2,
                   GPUNS::Stream& stream = GPUNS::Stream::Null());
+  void doStereo_(GPUNS::GpuMat& gpu_input,
+                 const std_msgs::Header& header);
+
 };
 
 }  // namespace
