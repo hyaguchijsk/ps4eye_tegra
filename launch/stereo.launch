@@ -36,16 +36,16 @@
   <arg name="width" default="1748"/>
   <arg name="height" default="408"/>
   <arg name="PUBLISH_FRAME" default="false"/>
-  <node name="gscam_driver" pkg="nodelet" type="nodelet"
-        args="load gscam/GSCamNodelet $(arg manager)"
-        output="screen"
-        if="$(arg load_driver)">
-    <param name="camera_name" value="default"/>
-    <param name="gscam_config" value="v4l2src device=$(arg DEVICE) ! video/x-raw-yuv,framerate=$(arg FPS),width=$(arg width),height=$(arg height) ! ffmpegcolorspace"/>
-    <param name="frame_id" value="/ps4eye_frame"/>
-    <param name="sync_sink" value="true"/>
-    <param name="camera_info_url" value="$(arg camera_info_url_default)" />
-  </node>
+  <!-- <node name="gscam_driver" pkg="nodelet" type="nodelet" -->
+  <!--       args="load gscam/GSCamNodelet $(arg manager)" -->
+  <!--       output="screen" -->
+  <!--       if="$(arg load_driver)"> -->
+  <!--   <param name="camera_name" value="default"/> -->
+  <!--   <param name="gscam_config" value="v4l2src device=$(arg DEVICE) ! video/x-raw-yuv,framerate=$(arg FPS),width=$(arg width),height=$(arg height) ! ffmpegcolorspace"/> -->
+  <!--   <param name="frame_id" value="/ps4eye_frame"/> -->
+  <!--   <param name="sync_sink" value="true"/> -->
+  <!--   <param name="camera_info_url" value="$(arg camera_info_url_default)" /> -->
+  <!-- </node> -->
 
   <node name="ps4eye_proc" pkg="nodelet" type="nodelet"
         args="load ps4eye_tegra/ps4eye_proc $(arg manager)"

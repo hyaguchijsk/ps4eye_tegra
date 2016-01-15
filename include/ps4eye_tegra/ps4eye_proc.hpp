@@ -9,7 +9,6 @@
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <nodelet/nodelet.h>
-#include <ros/ros.h>
 
 #include <image_transport/image_transport.h>
 #include <image_transport/subscriber_filter.h>
