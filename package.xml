@@ -9,6 +9,7 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
+  <build_depend>roscpp</build_depend>
   <build_depend>cv_bridge</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>
   <build_depend>image_geometry</build_depend>
@@ -22,7 +23,9 @@
   <build_depend>stereo_msgs</build_depend>
   <build_depend>camera_calibration_parsers</build_depend>
   <build_depend>camera_info_manager</build_depend>
+  <build_depend>yaml-cpp</build_depend>
 
+  <run_depend>roscpp</run_depend>
   <run_depend>cv_bridge</run_depend>
   <run_depend>dynamic_reconfigure</run_depend>
   <run_depend>image_geometry</run_depend>
@@ -36,6 +39,7 @@
   <run_depend>stereo_msgs</run_depend>
   <run_depend>camera_calibration_parsers</run_depend>
   <run_depend>camera_info_manager</run_depend>
+  <run_depend>yaml-cpp</run_depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml" />
