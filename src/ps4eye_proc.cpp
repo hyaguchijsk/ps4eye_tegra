@@ -101,13 +101,49 @@ void PS4EyeProc::onInit() {
       nh.advertise<CameraInfo>("/stereo/right/camera_info", 1,
                                connect_cb, connect_cb);
 
-  // image subscriber
-  approximate_sync_.reset(
-      new ApproximateSync(
-          ApproximatePolicy(10),
-          sub_image_, sub_info_));
-  approximate_sync_->registerCallback(
-      boost::bind(&PS4EyeProc::imageCallback, this, _1, _2));
+  private_nh.param("capture_mode", capture_mode_, false);
+
+  if (capture_mode_) {
+    ROS_INFO("Entering capture mode...");
+    // cap_.open(cv::CAP_GSTREAMER);
+    cap_.open(0);
+    if (cap_.isOpened()) {
+      // set properties
+      cap_.set(cv::CAP_PROP_FRAME_WIDTH, 1748);
+      cap_.set(cv::CAP_PROP_FRAME_HEIGHT, 408);
+      cap_.set(cv::CAP_PROP_FPS, 60);
+      // verify
+      ROS_INFO("FPS: %f", cap_.get(cv::CAP_PROP_FPS));
+      ROS_INFO("WIDTH x HEIGHT: %f x %f",
+               cap_.get(cv::CAP_PROP_FRAME_WIDTH),
+               cap_.get(cv::CAP_PROP_FRAME_HEIGHT));
+
+      // main routine
+      cv::Mat input;
+      std_msgs::Header header;
+      header.frame_id = "/ps4eye_frame";
+      while (ros::ok()) {
+        ROS_INFO("start capture");
+        header.stamp = ros::Time::now();
+        cap_ >> input;
+        gpu_input_.upload(input);
+        doStereo_(gpu_input_, header);
+        ROS_INFO("end capture");
+      }
+
+    } else {
+      ROS_ERROR("can not open gstreamer!");
+    }
+  } else {
+    ROS_INFO("Entering subscriber mode...");
+    // image subscriber
+    approximate_sync_.reset(
+        new ApproximateSync(
+            ApproximatePolicy(10),
+            sub_image_, sub_info_));
+    approximate_sync_->registerCallback(
+        boost::bind(&PS4EyeProc::imageCallback, this, _1, _2));
+  }
 }
 
 void PS4EyeProc::connectCallback() {
