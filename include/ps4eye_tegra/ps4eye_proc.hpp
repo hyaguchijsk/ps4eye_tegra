@@ -21,6 +21,8 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <cv_bridge/cv_bridge.h>
 
+#include <opencv2/videoio.hpp>
+
 // CUDA
 #if OPENCV3
 #include <opencv2/cudaimgproc.hpp>
@@ -87,6 +89,10 @@ class PS4EyeProc : public nodelet::Nodelet {
   uint32_t r_y_offset_;
   uint32_t r_width_;
   uint32_t r_height_;
+
+  // capture
+  bool capture_mode_;
+  cv::VideoCapture cap_;
 
   // rectify
   image_geometry::PinholeCameraModel left_model_;

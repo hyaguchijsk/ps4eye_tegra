@@ -4,6 +4,8 @@
   <arg name="respawn" default="false" />
   <!-- TODO Arguments for debayer, interpolation methods? -->
 
+  <arg name="capture_mode" default="true" />
+
   <arg     if="$(arg respawn)" name="bond" value="" />
   <arg unless="$(arg respawn)" name="bond" value="--no-bond" />
 
@@ -28,7 +30,7 @@
 
   <!-- This launchfile should bring up a node that broadcasts a ros image
        transport on /webcam/image_raw -->
-  <arg name="load_driver" default="true" />
+  <arg name="load_driver" default="false" />
   <arg name="DEVICE" default="/dev/video0"/>
   <!-- The GStreamer framerate needs to be an integral fraction -->
   <arg name="FPS" default="60/1"/>
@@ -50,6 +52,7 @@
   <node name="ps4eye_proc" pkg="nodelet" type="nodelet"
         args="load ps4eye_tegra/ps4eye_proc $(arg manager)"
         output="screen">
+    <param name="capture_mode" value="$(arg capture_mode)" />
     <param name="left_file_name"  value="$(arg camera_info_file_left)"  />
     <param name="right_file_name" value="$(arg camera_info_file_right)" />
     <param name="ndisparity" value="96" />
