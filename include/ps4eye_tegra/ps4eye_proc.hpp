@@ -3,6 +3,8 @@
 
 #include <boost/version.hpp>
 #if ((BOOST_VERSION / 100) % 1000) >= 53
+#include <boost/scoped_ptr.hpp>
+#include <boost/thread.hpp>
 #include <boost/thread/lock_guard.hpp>
 #endif
 
@@ -53,10 +55,14 @@ class PS4EyeProc : public nodelet::Nodelet {
   typedef message_filters::Synchronizer<ApproximatePolicy> ApproximateSync;
 
  public:
+  PS4EyeProc();
+  ~PS4EyeProc();
+
   virtual void onInit();
   void connectCallback();
   void imageCallback(const ImageConstPtr& image_msg,
                      const CameraInfoConstPtr& info_msg);
+  void capture();
  private:
   boost::shared_ptr<image_transport::ImageTransport> it_;
   boost::shared_ptr<image_transport::ImageTransport> it_left_camera_;
@@ -93,6 +99,7 @@ class PS4EyeProc : public nodelet::Nodelet {
   // capture
   bool capture_mode_;
   cv::VideoCapture cap_;
+  boost::scoped_ptr<boost::thread> capture_thread_;
 
   // rectify
   image_geometry::PinholeCameraModel left_model_;
