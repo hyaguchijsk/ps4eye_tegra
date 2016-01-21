@@ -1,0 +1,105 @@
+[ INFO] [1453350816.644204650]: start capture
+[ INFO] [1453350816.650543410]: start proc
+[ INFO] [1453350816.650720075]:   crop left
+[ INFO] [1453350816.650825323]:   crop right
+[ INFO] [1453350816.650937905]:   rectify left
+[ INFO] [1453350816.651289151]:   rectify right
+[ INFO] [1453350816.651724146]:  stereo matching
+[ INFO] [1453350816.651861978]:   stereoBM in
+[ INFO] [1453350816.654691195]:   stereoBM out
+[ INFO] [1453350816.656587590]:  GPU sync
+[ INFO] [1453350816.700946080]:  GPU process end
+[ INFO] [1453350816.701154411]:  left image conversion end
+[ INFO] [1453350816.705958855]:  disparity conversion end
+[ INFO] [1453350816.706108687]: end proc
+[ INFO] [1453350816.707028426]: end capture
+[ INFO] [1453350816.707448922]: start capture
+[ INFO] [1453350816.715618578]: start proc
+[ INFO] [1453350816.715863575]:   crop left
+[ INFO] [1453350816.716038323]:   crop right
+[ INFO] [1453350816.716221571]:   rectify left
+[ INFO] [1453350816.716601566]:   rectify right
+[ INFO] [1453350816.716918813]:  stereo matching
+[ INFO] [1453350816.717047394]:   stereoBM in
+[ INFO] [1453350816.719070038]:   stereoBM out
+[ INFO] [1453350816.720137109]:  GPU sync
+[ INFO] [1453350816.760212231]:  GPU process end
+[ INFO] [1453350816.760400395]:  left image conversion end
+[ INFO] [1453350816.765082925]:  disparity conversion end
+[ INFO] [1453350816.765237006]: end proc
+[ INFO] [1453350816.765618085]: end capture
+[ INFO] [1453350816.765773167]: start capture
+[ INFO] [1453350816.772570505]: start proc
+[ INFO] [1453350816.772740337]:   crop left
+[ INFO] [1453350816.772845086]:   crop right
+[ INFO] [1453350816.773134499]:   rectify left
+[ INFO] [1453350816.773572410]:   rectify right
+[ INFO] [1453350816.773983489]:  stereo matching
+[ INFO] [1453350816.774175237]:   stereoBM in
+[ INFO] [1453350816.777137369]:   stereoBM out
+[ INFO] [1453350816.778645019]:  GPU sync
+[ INFO] [1453350816.820439538]:  GPU process end
+[ INFO] [1453350816.820826283]:  left image conversion end
+[ INFO] [1453350816.825595562]:  disparity conversion end
+[ INFO] [1453350816.825921808]: end proc
+[ INFO] [1453350816.826404052]: end capture
+[ INFO] [1453350816.826676966]: start capture
+[ INFO] [1453350816.832525649]: start proc
+[ INFO] [1453350816.832699813]:   crop left
+[ INFO] [1453350816.832805312]:   crop right
+[ INFO] [1453350816.832919144]:   rectify left
+[ INFO] [1453350816.833458055]:   rectify right
+[ INFO] [1453350816.833879050]:  stereo matching
+[ INFO] [1453350816.833958715]:   stereoBM in
+[ INFO] [1453350816.836271022]:   stereoBM out
+[ INFO] [1453350816.837693172]:  GPU sync
+[ INFO] [1453350816.887420100]:  GPU process end
+[ INFO] [1453350816.887611515]:  left image conversion end
+[ INFO] [1453350816.892420209]:  disparity conversion end
+[ INFO] [1453350816.892576791]: end proc
+[ INFO] [1453350816.893065535]: end capture
+[ INFO] [1453350816.893200950]: start capture
+[ INFO] [1453350816.898829135]: start proc
+[ INFO] [1453350816.899074383]:   crop left
+[ INFO] [1453350816.899438545]:   crop right
+[ INFO] [1453350816.899652959]:   rectify left
+[ INFO] [1453350816.900099537]:   rectify right
+[ INFO] [1453350816.900431284]:  stereo matching
+[ INFO] [1453350816.900579449]:   stereoBM in
+[ INFO] [1453350816.902553676]:   stereoBM out
+[ INFO] [1453350816.903634997]:  GPU sync
+[ INFO] [1453350816.943585287]:  GPU process end
+[ INFO] [1453350816.943754535]:  left image conversion end
+[ INFO] [1453350816.950091962]:  disparity conversion end
+[ INFO] [1453350816.950451458]: end proc
+[ INFO] [1453350816.951399114]: end capture
+[ INFO] [1453350816.951656361]: start capture
+[ INFO] [1453350816.960361927]: start proc
+[ INFO] [1453350816.961061419]:   crop left
+[ INFO] [1453350816.961504414]:   crop right
+[ INFO] [1453350816.962008492]:   rectify left
+[ INFO] [1453350816.962569902]:   rectify right
+[ INFO] [1453350816.963502058]:  stereo matching
+[ INFO] [1453350816.964070551]:   stereoBM in
+[ INFO] [1453350816.966242859]:   stereoBM out
+[ INFO] [1453350816.968052089]:  GPU sync
+[ INFO] [1453350817.009081616]:  GPU process end
+[ INFO] [1453350817.009159615]:  left image conversion end
+[ INFO] [1453350817.014529554]:  disparity conversion end
+[ INFO] [1453350817.014975882]: end proc
+[ INFO] [1453350817.015643041]: end capture
+[ INFO] [1453350817.016030120]: start capture
+[ INFO] [1453350817.025146765]: start proc
+[ INFO] [1453350817.025318763]:   crop left
+[ INFO] [1453350817.025438678]:   crop right
+[ INFO] [1453350817.025548344]:   rectify left
+[ INFO] [1453350817.025886506]:   rectify right
+[ INFO] [1453350817.026374501]:  stereo matching
+[ INFO] [1453350817.026586332]:   stereoBM in
+[ INFO] [1453350817.031127946]:   stereoBM out
+[ INFO] [1453350817.032484430]:  GPU sync
+[ INFO] [1453350817.072134974]:  GPU process end
+[ INFO] [1453350817.072629802]:  left image conversion end
+[ INFO] [1453350817.087855293]:  disparity conversion end
+[ INFO] [1453350817.088690533]: end proc
+[ INFO] [1453350817.089087695]: end capture
