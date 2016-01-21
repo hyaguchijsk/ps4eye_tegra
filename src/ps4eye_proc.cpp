@@ -2,6 +2,14 @@
 
 namespace ps4eye_tegra {
 
+PS4EyeProc::PS4EyeProc() {
+}
+PS4EyeProc::~PS4EyeProc() {
+  if (capture_mode_) {
+    capture_thread_->join();
+  }
+}
+
 void PS4EyeProc::onInit() {
   ros::NodeHandle& nh = getNodeHandle();
   ros::NodeHandle& private_nh = getPrivateNodeHandle();
@@ -117,20 +125,8 @@ void PS4EyeProc::onInit() {
       ROS_INFO("WIDTH x HEIGHT: %f x %f",
                cap_.get(cv::CAP_PROP_FRAME_WIDTH),
                cap_.get(cv::CAP_PROP_FRAME_HEIGHT));
-
-      // main routine
-      cv::Mat input;
-      std_msgs::Header header;
-      header.frame_id = "/ps4eye_frame";
-      while (ros::ok()) {
-        ROS_INFO("start capture");
-        header.stamp = ros::Time::now();
-        cap_ >> input;
-        gpu_input_.upload(input);
-        doStereo_(gpu_input_, header);
-        ROS_INFO("end capture");
-      }
-
+      capture_thread_.reset(
+          new boost::thread(boost::bind(&PS4EyeProc::capture, this)));
     } else {
       ROS_ERROR("can not open gstreamer!");
     }
@@ -143,6 +139,21 @@ void PS4EyeProc::onInit() {
             sub_image_, sub_info_));
     approximate_sync_->registerCallback(
         boost::bind(&PS4EyeProc::imageCallback, this, _1, _2));
+  }
+}
+
+void PS4EyeProc::capture() {
+  // main routine
+  cv::Mat input;
+  std_msgs::Header header;
+  header.frame_id = "/ps4eye_frame";
+  while (ros::ok()) {
+    ROS_INFO("start capture");
+    header.stamp = ros::Time::now();
+    cap_ >> input;
+    gpu_input_.upload(input);
+    doStereo_(gpu_input_, header);
+    ROS_INFO("end capture");
   }
 }
 
